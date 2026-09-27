@@ -1,0 +1,24 @@
+# PowerScale Cluster Monitor Configuration Example
+# Copy this file to powerscale_config.yaml and update with your settings
+
+# Cluster connection settings
+host: 192.168.1.50           # PowerScale cluster hostname or IP address
+port: 8080                    # API port (default: 8080)
+username: root                # API username
+password: your_password_here  # API password (consider using environment variables instead)
+
+# SSL settings
+ssl_verify: false             # Enable SSL verification (default: false for self-signed certs)
+
+# Request settings
+timeout: 30                   # Request timeout in seconds (default: 30)
+
+# Report settings
+save_report: true             # Automatically save reports to JSON (default: false)
+report_file: cluster_report.json  # Custom report filename (auto-generated if not specified)
+
+# Note: For security, consider using environment variables instead of storing
+# credentials in this file:
+# export POWERSCALE_HOST=192.168.1.50
+# export POWERSCALE_USERNAME=root
+# export POWERSCALE_PASSWORD=your_password

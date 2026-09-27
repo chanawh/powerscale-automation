@@ -1,0 +1,1 @@
+﻿Place actual screenshots or GIFs here before publishing. Filenames expected:\n- cloudwatch-dashboard.png\n- sns-alert-sample.png\n- terraform-apply.gif\nYou can replace the .placeholder files with real images.

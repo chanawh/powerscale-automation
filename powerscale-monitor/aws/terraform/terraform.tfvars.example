@@ -1,0 +1,22 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# PowerScale Cluster Configuration
+powerscale_host = "192.168.1.50"
+powerscale_username = "root"
+powerscale_password = "your_password_here"
+powerscale_port = 8080
+powerscale_ssl_verify = false
+
+# Alert Configuration
+alert_emails = ["admin@example.com", "ops@example.com"]
+
+# Thresholds
+critical_threshold = 50
+degraded_threshold = 80
+
+# Scheduling
+schedule_expression = "rate(5 minutes)"
+
+# CloudWatch
+cloudwatch_namespace = "PowerScale/Cluster"

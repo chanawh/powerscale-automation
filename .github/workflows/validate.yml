@@ -1,0 +1,21 @@
+name: Validate
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile check
+        run: |
+          python -m py_compile powerscale-monitor/powerscale_cluster_monitor.py powerscale-monitor/aws/lambda_function.py
+      - name: Terraform validate
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.5.7'
+      - run: |
+          terraform -chdir=powerscale-monitor/aws/terraform init -backend=false
+          terraform -chdir=powerscale-monitor/aws/terraform validate

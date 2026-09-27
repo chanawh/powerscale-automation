@@ -1,0 +1,5 @@
+# Pinned for Python 3.9 Lambda runtime compatibility.
+# Newer urllib3/botocore releases use 3.10+ syntax that can break on older runtimes.
+requests>=2.31.0,<2.32.0
+urllib3>=1.26.0,<2.0.0
+boto3>=1.28.0,<1.35.0

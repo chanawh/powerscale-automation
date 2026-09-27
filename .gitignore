@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Terraform - CRITICAL, currently missing
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+!terraform.tfvars.example
+
+# Build artifacts - CRITICAL, currently missing
+deployment.zip
+package/
+
+# Config with secrets
+powerscale_config.yaml
+.env
+
+# Debug/test artifacts - CRITICAL, currently missing
+response.html
+response.json
+events.json
+codedump.txt
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
