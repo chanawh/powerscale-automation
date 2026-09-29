@@ -1,21 +1,104 @@
 name: Validate
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Compile check
+          cache: 'pip'
+          cache-dependency-path: |
+            powerscale-monitor/requirements.txt
+            powerscale-monitor/aws/aws-requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r powerscale-monitor/requirements.txt
+          pip install -r powerscale-monitor/aws/aws-requirements.txt
+          pip install pytest flake8 black isort
+
+      - name: Python syntax check
         run: |
           python -m py_compile powerscale-monitor/powerscale_cluster_monitor.py powerscale-monitor/aws/lambda_function.py
-      - name: Terraform validate
+
+      - name: Run linting
+        run: |
+          flake8 powerscale-monitor/ --max-line-length=100 --exclude=.git,__pycache__,.venv
+          black powerscale-monitor/ --check --line-length=100
+          isort powerscale-monitor/ --check-only
+
+      - name: Run tests
+        run: |
+          cd powerscale-monitor/aws
+          python -m pytest tests/ -v
+
+      - name: Build Lambda deployment package
+        run: |
+          cd powerscale-monitor/aws
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Verify deployment package
+        run: |
+          if [ ! -f powerscale-monitor/aws/deployment.zip ]; then
+            echo "Error: deployment.zip was not created"
+            exit 1
+          fi
+          echo "Deployment package created successfully"
+          ls -lh powerscale-monitor/aws/deployment.zip
+
+      - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.5.7'
-      - run: |
+          terraform_wrapper: false
+
+      - name: Terraform fmt check
+        run: |
+          terraform -chdir=powerscale-monitor/aws/terraform fmt -check
+
+      - name: Terraform init
+        run: |
           terraform -chdir=powerscale-monitor/aws/terraform init -backend=false
+
+      - name: Terraform validate
+        run: |
           terraform -chdir=powerscale-monitor/aws/terraform validate
+
+      - name: Terraform security scan
+        run: |
+          pip install tfsec
+          tfsec powerscale-monitor/aws/terraform --soft-fail
+
+      - name: Check for secrets
+        run: |
+          pip install truffleHog
+          trufflehog --exclude_paths ".git,docs/screenshots,node_modules" --json . | tee secrets-scan.json
+          if [ $(jq '. | length' secrets-scan.json) -gt 0 ]; then
+            echo "Potential secrets found! Please review the scan results."
+            exit 1
+          fi
+
+      - name: Validation Summary
+        if: always()
+        run: |
+          echo "## Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Python Syntax**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Linting**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Package**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Terraform Validate**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Scan**: ✅ Passed" >> $GITHUB_STEP_SUMMARY

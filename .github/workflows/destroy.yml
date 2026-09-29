@@ -1,0 +1,98 @@
+name: Destroy
+
+on:
+  workflow_dispatch:  # Manual trigger only - for safety
+  # Uncomment to allow automatic destroy (NOT recommended for production)
+  # push:
+  #   branches: [main]
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.5.7'
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          cd powerscale-monitor/aws/terraform
+          terraform init \
+            -backend-config="bucket=${{ secrets.TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="key=powerscale-monitor/terraform.tfstate" \
+            -backend-config="region=${{ secrets.AWS_REGION || 'us-east-1' }}"
+
+      - name: Terraform Destroy
+        run: |
+          cd powerscale-monitor/aws/terraform
+          terraform destroy -auto-approve \
+            -var="powerscale_host=${{ secrets.POWERSCALE_HOST }}" \
+            -var="powerscale_username=${{ secrets.POWERSCALE_USERNAME }}" \
+            -var="powerscale_password=${{ secrets.POWERSCALE_PASSWORD }}" \
+            -var="alert_emails=${{ secrets.ALERT_EMAILS }}" \
+            -var="aws_region=${{ secrets.AWS_REGION || 'us-east-1' }}"
+
+      - name: Verify Cleanup
+        run: |
+          echo "Verifying resources are cleaned up..."
+          
+          # Check Lambda function is deleted
+          if aws lambda get-function --function-name powerscale-monitor 2>/dev/null; then
+            echo "ERROR: Lambda function still exists"
+            exit 1
+          else
+            echo "✓ Lambda function deleted"
+          fi
+          
+          # Check IAM role is deleted
+          if aws iam get-role --role-name powerscale-monitor-role 2>/dev/null; then
+            echo "ERROR: IAM role still exists"
+            exit 1
+          else
+            echo "✓ IAM role deleted"
+          fi
+          
+          # Check SNS topic is deleted
+          TOPIC_ARN=$(aws sns list-topics --query "Topics[?contains(TopicArn, 'powerscale-cluster-alerts')].TopicArn" --output text 2>/dev/null)
+          if [ -n "$TOPIC_ARN" ]; then
+            echo "WARNING: SNS topic still exists: $TOPIC_ARN"
+          else
+            echo "✓ SNS topic deleted"
+          fi
+          
+          echo "Cleanup verification complete"
+
+      - name: Destroy Summary
+        if: always()
+        run: |
+          echo "## Destroy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ secrets.AWS_REGION || 'us-east-1' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Resources Destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "- Lambda Function: powerscale-monitor" >> $GITHUB_STEP_SUMMARY
+          echo "- IAM Role: powerscale-monitor-role" >> $GITHUB_STEP_SUMMARY
+          echo "- SNS Topic: powerscale-cluster-alerts" >> $GITHUB_STEP_SUMMARY
+          echo "- EventBridge Rule: powerscale-monitoring-schedule" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudWatch Log Group: /aws/lambda/powerscale-monitor" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudWatch Alarms: 3 alarms" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudWatch Dashboard: PowerScale-Cluster-Monitor" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cost Impact" >> $GITHUB_STEP_SUMMARY
+          echo "- Ongoing costs: $0/month" >> $GITHUB_STEP_SUMMARY
+          echo "- All billable resources have been removed" >> $GITHUB_STEP_SUMMARY

@@ -22,7 +22,7 @@ cd ..
 
 # Create zip file
 echo "Creating deployment package..."
-powershell.exe -Command "Compress-Archive -Path 'package/*' -DestinationPath 'deployment.zip' -Force"
+zip -r deployment.zip package/*
 
 # Clean up package directory
 rm -rf package
